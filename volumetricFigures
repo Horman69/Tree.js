@@ -1,0 +1,126 @@
+import { Canvas, useFrame } from '@react-three/fiber';
+import { useRef, useMemo } from 'react';
+import * as THREE from 'three';
+
+const NeonShapes = () => {
+  const groupRef = useRef<THREE.Group>(null);
+  
+  // Создаем фигуры с разными параметрами
+  const shapes = useMemo(() => {
+    return Array.from({ length: 40 }, () => ({
+      position: new THREE.Vector3(
+        (Math.random() - 0.5) * 10,
+        (Math.random() - 0.5) * 10,
+        (Math.random() - 0.5) * 10
+      ),
+      rotation: new THREE.Euler(
+        Math.random() * Math.PI,
+        Math.random() * Math.PI,
+        Math.random() * Math.PI
+      ),
+      scale: 0.3 + Math.random() * 1.5,
+      speed: 0.001 + Math.random() * 0.002,
+      color: new THREE.Color().setHSL(Math.random(), 0.8, 0.6),
+      type: Math.floor(Math.random() * 3)
+    }));
+  }, []);
+
+  useFrame((state) => {
+    if (groupRef.current) {
+      // Вращение всей группы
+      groupRef.current.rotation.x += 0.001;
+      groupRef.current.rotation.y += 0.002;
+
+      // Анимация каждой фигуры
+      groupRef.current.children.forEach((child, i) => {
+        const time = state.clock.getElapsedTime();
+        
+        // Индивидуальное вращение
+        child.rotation.x += shapes[i].speed;
+        child.rotation.y += shapes[i].speed * 1.5;
+        
+        // Пульсация размера
+        const pulse = Math.sin(time * 2 + i) * 0.1;
+        child.scale.setScalar(shapes[i].scale + pulse);
+        
+        // Движение по синусоиде
+        child.position.y += Math.sin(time + i) * 0.002;
+        child.position.x += Math.cos(time + i) * 0.002;
+      });
+    }
+  });
+
+  return (
+    <group ref={groupRef}>
+      {shapes.map((shape, i) => {
+        const commonMaterialProps = {
+          color: shape.color,
+          emissive: shape.color,
+          emissiveIntensity: 0.7,
+          transparent: true,
+          opacity: 0.8,
+          wireframe: true,
+        };
+
+        switch(shape.type) {
+          case 0: // Куб
+            return (
+              <mesh
+                key={i}
+                position={shape.position}
+                rotation={shape.rotation}
+              >
+                <boxGeometry args={[1, 1, 1]} />
+                <meshStandardMaterial {...commonMaterialProps} />
+              </mesh>
+            );
+          case 1: // Линия
+            return (
+              <mesh
+                key={i}
+                position={shape.position}
+                rotation={shape.rotation}
+              >
+                <boxGeometry args={[2, 0.1, 0.1]} />
+                <meshStandardMaterial {...commonMaterialProps} />
+              </mesh>
+            );
+          default: // Плоскость
+            return (
+              <mesh
+                key={i}
+                position={shape.position}
+                rotation={shape.rotation}
+              >
+                <planeGeometry args={[1, 1]} />
+                <meshStandardMaterial 
+                  {...commonMaterialProps}
+                  side={THREE.DoubleSide}
+                />
+              </mesh>
+            );
+        }
+      })}
+    </group>
+  );
+};
+
+const SimpleScene = () => {
+  return (
+    <Canvas camera={{ position: [0, 0, 15], fov: 60 }}>
+      <color attach="background" args={['#000']} />
+      
+      {/* Освещение */}
+      <ambientLight intensity={0.2} />
+      <pointLight position={[10, 10, 10]} intensity={0.5} />
+      
+      {/* Основные фигуры */}
+      <NeonShapes />
+      
+      {/* Эффект глубины */}
+      <fog attach="fog" args={['#000', 8, 20]} />
+    </Canvas>
+  );
+};
+
+export default SimpleScene;
