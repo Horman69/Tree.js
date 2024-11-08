@@ -1,0 +1,134 @@
+'use client';
+
+import { useRef, useMemo } from 'react';
+import { useFrame } from '@react-three/fiber';
+import * as THREE from 'three';
+
+interface StarFieldConfig {
+  starsCount: number;          // Количество звезд в поле
+  fieldSize: number;           // Размер поля звезд
+  starsSizeRange: [number, number]; // Диапазон размеров звезд [мин, макс]
+  velocityRange: [number, number];  // Диапазон скоростей движения [мин, макс]
+  rotationSpeed: number;       // Скорость вращения всего звездного поля
+  pulseSpeed: number;          // Скорость пульсации звезд
+  pulseIntensity: number;      // Сила пульсации звезд
+  colorPalette: {             // Настройки цвета звезд
+    hue: [number, number],     // Диапазон цветов [начало, конец] (0-1: красный->зеленый->синий)
+    saturation: number,        // Насыщенность цвета (0-1)
+    lightness: number          // Яркость цвета (0-1)
+  }
+}
+
+// Настройки по умолчанию
+const defaultConfig: StarFieldConfig = {
+  starsCount: 1000,           // 1000 звезд
+  fieldSize: 100,             // Поле 100x100x100
+  starsSizeRange: [0.1, 0.6], // Размеры от 0.1 до 0.6
+  velocityRange: [0.01, 0.03], // Медленное движение
+  rotationSpeed: 0.05,        // Медленное вращение
+  pulseSpeed: 1,              // Нормальная скорость пульсации
+  pulseIntensity: 0.3,        // Умеренная пульсация
+  colorPalette: {
+    hue: [0, 0.5],              // Все цвета спектра
+    saturation: 0.7,          // Хорошая насыщенность
+    lightness: 0.6            // Средняя яркость
+  }
+};
+
+const StarField = ({ config = defaultConfig }: { config?: Partial<StarFieldConfig> }) => {
+  // Объединяем пользовательские настройки с дефолтными
+  const finalConfig = { ...defaultConfig, ...config };
+  const groupRef = useRef<THREE.Group>(null);
+  
+  // Создаем звезды с заданными параметрами
+  const stars = useMemo(() => {
+    return Array.from({ length: finalConfig.starsCount }, () => {
+      // Случайный размер звезды из заданного диапазона
+      const size = THREE.MathUtils.lerp(
+        finalConfig.starsSizeRange[0], 
+        finalConfig.starsSizeRange[1], 
+        Math.random()
+      );
+      
+      // Случайная скорость движения
+      const velocity = THREE.MathUtils.lerp(
+        finalConfig.velocityRange[0],
+        finalConfig.velocityRange[1],
+        Math.random()
+      );
+
+      // Случайный цвет из заданной палитры
+      const hue = THREE.MathUtils.lerp(
+        finalConfig.colorPalette.hue[0],
+        finalConfig.colorPalette.hue[1],
+        Math.random()
+      );
+
+      return {
+        position: new THREE.Vector3(
+          (Math.random() - 0.5) * finalConfig.fieldSize,
+          (Math.random() - 0.5) * finalConfig.fieldSize,
+          (Math.random() - 0.5) * finalConfig.fieldSize
+        ),
+        velocity: new THREE.Vector3(
+          (Math.random() - 0.5) * velocity,
+          (Math.random() - 0.5) * velocity,
+          (Math.random() - 0.5) * velocity
+        ),
+        size,
+        color: new THREE.Color().setHSL(
+          hue,
+          finalConfig.colorPalette.saturation,
+          finalConfig.colorPalette.lightness
+        )
+      };
+    });
+  }, [finalConfig]);
+
+  // Анимация в каждом кадре
+  useFrame((state) => {
+    if (!groupRef.current) return;
+    const time = state.clock.getElapsedTime();
+
+    // Вращение всего поля звезд
+    groupRef.current.rotation.y = time * finalConfig.rotationSpeed;
+
+    // Обновление каждой звезды
+    groupRef.current.children.forEach((child, i) => {
+      const star = stars[i];
+      
+      // Движение звезды
+      child.position.add(star.velocity);
+
+      // Отражение от границ поля
+      if (child.position.length() > finalConfig.fieldSize / 2) {
+        child.position.setLength(finalConfig.fieldSize / 2);
+        star.velocity.multiplyScalar(-1);
+      }
+
+      // Пульсация яркости
+      const material = child.material as THREE.MeshPhongMaterial;
+      material.emissiveIntensity = 
+        Math.sin(time * finalConfig.pulseSpeed + i) * finalConfig.pulseIntensity + 0.7;
+    });
+  });
+
+  return (
+    <group ref={groupRef}>
+      {stars.map((star, i) => (
+        <mesh key={i} position={star.position.toArray()}>
+          <sphereGeometry args={[star.size, 8, 8]} />
+          <meshPhongMaterial
+            color={star.color}
+            emissive={star.color}
+            emissiveIntensity={1}
+            transparent
+            opacity={0.8}
+          />
+        </mesh>
+      ))}
+    </group>
+  );
+};
+
+export default StarField;
