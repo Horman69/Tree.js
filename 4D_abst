@@ -1,0 +1,88 @@
+'use client';
+
+import { useRef, useMemo } from 'react';
+import { useFrame } from '@react-three/fiber';
+import * as THREE from 'three';
+
+const NeonShapes = () => {
+  const groupRef = useRef<THREE.Group>(null);
+
+  const shapes = useMemo(() => {
+    return Array.from({ length: 100 }, () => ({
+      position: new THREE.Vector3(
+        (Math.random() - 0.5) * 30,
+        (Math.random() - 0.5) * 30,
+        (Math.random() - 0.5) * 30
+      ),
+      rotation: new THREE.Euler(
+        Math.random() * Math.PI,
+        Math.random() * Math.PI,
+        Math.random() * Math.PI
+      ),
+      scale: Math.random() * 3 + 0.5,
+      speed: Math.random() * 2 + 0.5,
+      rotationSpeed: {
+        x: (Math.random() - 0.5) * 0.1,
+        y: (Math.random() - 0.5) * 0.1,
+        z: (Math.random() - 0.5) * 0.1
+      },
+      pulseSpeed: Math.random() * 2 + 1,
+      type: Math.floor(Math.random() * 4),
+      color: `hsl(${Math.random() * 360}, 100%, 70%)`,
+    }));
+  }, []);
+
+  useFrame((state) => {
+    if (!groupRef.current) return;
+    const time = state.clock.getElapsedTime();
+
+    groupRef.current.rotation.y = Math.sin(time * 0.1) * 0.5;
+    groupRef.current.rotation.x = Math.cos(time * 0.1) * 0.5;
+
+    groupRef.current.children.forEach((child, i) => {
+      const shape = shapes[i];
+      
+      // Спиральное движение
+      const radius = 10 + Math.sin(time * 0.5) * 5;
+      const angle = time * shape.speed + i * 0.1;
+      
+      child.position.x = shape.position.x + Math.sin(angle) * radius;
+      child.position.y = shape.position.y + Math.cos(angle) * radius;
+      child.position.z = shape.position.z + Math.sin(time * 0.3) * 5;
+      
+      // Пульсирующее вращение
+      child.rotation.x += Math.sin(time * shape.pulseSpeed) * shape.rotationSpeed.x;
+      child.rotation.y += Math.cos(time * shape.pulseSpeed) * shape.rotationSpeed.y;
+      child.rotation.z += Math.sin(time * shape.pulseSpeed) * shape.rotationSpeed.z;
+      
+      // Пульсация размера
+      const scalePulse = Math.sin(time * shape.pulseSpeed) * 0.5 + 1.5;
+      child.scale.set(shape.scale * scalePulse, shape.scale * scalePulse, shape.scale * scalePulse);
+    });
+  });
+
+  return (
+    <group ref={groupRef}>
+      {shapes.map((shape, i) => (
+        <mesh
+          key={i}
+          position={[shape.position.x, shape.position.y, shape.position.z]}
+          rotation={[shape.rotation.x, shape.rotation.y, shape.rotation.z]}
+          scale={shape.scale}
+        >
+          {shape.type === 0 && <meshPhongMaterial color={shape.color} emissive={shape.color} emissiveIntensity={2} />}
+          {shape.type === 1 && <meshStandardMaterial color={shape.color} emissive={shape.color} emissiveIntensity={2} metalness={1} roughness={0} />}
+          {shape.type === 2 && <meshToonMaterial color={shape.color} />}
+          {shape.type === 3 && <meshNormalMaterial />}
+          
+          {shape.type === 0 && <octahedronGeometry args={[1]} />}
+          {shape.type === 1 && <torusKnotGeometry args={[0.5, 0.2, 128, 32]} />}
+          {shape.type === 2 && <dodecahedronGeometry args={[0.7]} />}
+          {shape.type === 3 && <icosahedronGeometry args={[0.8]} />}
+        </mesh>
+      ))}
+    </group>
+  );
+};
+
+export default NeonShapes;
